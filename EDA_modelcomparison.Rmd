@@ -1,0 +1,267 @@
+---
+title: "EDA_modelcomparison"
+author: "Sohoon Youn"
+date: "2023-08-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(ggridges)
+library(mgcv)
+library(randomForest)
+library(caret)
+setwd("/Users/sohoon/Desktop/938/A3")
+```
+
+## (a)
+
+```{r, error=FALSE, warning=FALSE}
+data = read.csv("autoswapper.csv")
+```
+
+```{r, error=FALSE, warning=FALSE}
+head(data)
+```
+There are 9 variables in the provided dataset. `make`, `model`, `transmission`, and `fuelType` are categorical variables, while `price`, `mileage`, `year`, `engineSize`, and `mpg` are numerical variables. 
+
+```{r, echo=FALSE}
+sum(is.null(data))
+```
+
+There is no null values in the provided dataset. 
+
+
+```{r, error=FALSE, warning=FALSE}
+p1 = ggplot(data, aes(x=price)) + geom_histogram(fill="steelblue",color="blue",binwidth=20)+theme_minimal()
+p2 = ggplot(data=data, aes(x=year, y=price)) + geom_point(alpha = 0.4,color=rgb(0.2,0.4,0.6,0.6)) + 
+  xlab('year')+ylab('price')+theme_minimal()
+ggarrange(p1, p2, ncol = 2, nrow = 1)
+```
+
+```{r, error=FALSE, warning=FALSE}
+summary(data$price)
+summary(data$year)
+```
+
+The median and mean of the `price` variable are 14495 and 16812, respectively. The maximum value of the `price` variable is 159999. However, the majority of the data is highly concentrated between 0 and 50000. The median and mean of the year variable are both 2017. The maximum value of the `year` variable is 2060 while the minimum value is 1970. The majority of the data is highly concentrated between 2000 and 2022. There are few data points when `year`<1980 and `year`>2025. A positive correlation is identified between `price` and `year`. Specifically, the price of vehicles tends to increase as time goes on.
+
+```{r, error=FALSE, warning=FALSE}
+p1 = ggplot(data=data, aes(x=mileage, y=price)) + geom_point(alpha = 0.4,color=rgb(0.2,0.4,0.6,0.6)) + xlab('mileage')+ylab('price')+theme_minimal()
+p2 = ggplot(data=data, aes(x=mpg, y=price)) + geom_point(alpha = 0.4,color=rgb(0.2,0.4,0.6,0.6)) + 
+  xlab('mpg')+ylab('price')+theme_minimal()
+ggarrange(p1, p2, ncol = 2, nrow = 1)
+```
+
+```{r, error=FALSE, warning=FALSE}
+summary(data$mileage)
+summary(data$mpg)
+```
+
+The majority of the data is highly concentrated when variable `mileage` is between 0 and 150000, and potential outliers are identified when `mileage`>200000. The median and mean of the `mileage` variable are 17455 and 23063. A negative correlation is identified between `price` and `mileage`. To be specific, `price` decreases as `mileage` increases. 
+
+The majority of the data is highly concentrated when variable `mpg` is between 0 and 100, and there are significantly less data when `mpg`<300. The median and mean of the `mpg` variable are 54.30 and 55.14. A negative correlation is identified between `price` and `mpg`. To be specific, `price` decreases as `mpg` increases. 
+
+```{r, error=FALSE, warning=FALSE}
+p1 = ggplot(data, aes(x = make)) +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_histogram(fill = "cornflowerblue", color = "black", stat="count") + 
+  labs(title="Price by Make", x = "Make") 
+
+p2 = ggplot(data, 
+       aes(x = make, 
+           y = price)) +
+  geom_violin(fill = "cornflowerblue") +
+  geom_boxplot(width = .2, 
+               fill = "white",
+               outlier.color = "orange",
+               outlier.size = 0.1) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Price Distribution by Make") 
+
+ggarrange(p1, p2, ncol = 2, nrow = 1)
+```
+
+The `make` variable is a categorical variable with the following categories: `Mercedes`, `Ford`, `Hyundai`, `Toyota`, `Audi`, `Skoda`, `BMW`, `Vauxhall`, `Volkswagen`. Most of the categories produced more than 10000 vehicles, and the majority of the vehicles in each category cost less than GBP50000.
+
+
+```{r, error=FALSE, warning=FALSE}
+length(unique(data$model))
+df1 = data.frame(data %>% group_by(model, .drop = FALSE) %>% count())
+sum(df1$n<10)
+```
+
+There are 194 different models in the dataset and 35 models have less than 10 counts. 
+
+```{r, error=FALSE, warning=FALSE}
+p1 = ggplot(data, aes(x = transmission)) +
+  geom_histogram(fill = "cornflowerblue", color = "black", stat="count") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title="Price by Transmission", x = "Transmission")
+
+p2 = ggplot(data, 
+       aes(x = transmission, 
+           y = price)) +
+  geom_violin(fill = "cornflowerblue") +
+  geom_boxplot(width = .2, 
+               fill = "white",
+               outlier.color = "orange",
+               outlier.size = 0.1) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Price Distribution by Transmission") 
+
+ggarrange(p1, p2, ncol = 2, nrow = 1)
+```
+
+```{r, error=FALSE, warning=FALSE}
+df1 = data.frame(data %>% group_by(transmission, .drop = FALSE) %>% count())
+df1
+```
+
+The `Transmission` variable is a categorical variable with the following categories: `Automatic`, `Manual`, `Semi-Auto`, `Other` categories. Most of categories produced more than 19000 vehicles, and majority of the vehicles in each category cost less than GBP50000. There are only 9 vehicles in category `Other`, but the distribution of the `price` for category `Other` is similar to that of the other three categories.
+
+
+```{r, error=FALSE, warning=FALSE}
+p1 = ggplot(data, aes(x = fuelType)) +
+  geom_histogram(fill = "cornflowerblue", color = "black", stat="count") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title="Price by fuelType", x = "fuelType") 
+
+p2 = ggplot(data, 
+       aes(x = fuelType, 
+           y = price)) +
+  geom_violin(fill = "cornflowerblue") +
+  geom_boxplot(width = .2, 
+               fill = "white",
+               outlier.color = "orange",
+               outlier.size = 0.1) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Price Distribution by fuelType") 
+
+ggarrange(p1, p2, ncol = 2, nrow = 1)
+```
+```{r, error=FALSE, warning=FALSE}
+df1 = data.frame(data %>% group_by(fuelType, .drop = FALSE) %>% count())
+df1
+```
+
+The `fuelType` variable is a categorical variable with the following categories: `Diesel`, `Petrol`, `Hybrid`, `Other`, and `Electric`. More than 90% of vehicles belong to the `Diesel` and `Petrol` while there are only 6 vehicles in the `Electric` category. There are less than 3000 vehicles in categories `Hybrid`, `Other`, and `Electric`, respectively, but the distribution of the `price` for each of three categories is similar to that of the other two categories.
+
+```{r, error=FALSE, warning=FALSE}
+ggplot(data, aes(x = engineSize)) +
+  geom_histogram(fill = "cornflowerblue", color = "black", stat="count") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title="Price by engineSize", x = "engineSize") 
+```
+
+
+```{r, error=FALSE, warning=FALSE}
+df1 = data.frame(data %>% group_by(engineSize, .drop = FALSE) %>% count())
+summary(df1$engineSize)
+dim(df1)
+sum(df1$n<10)
+```
+There are 40 different `engineSize`, The median and mean of `enginSize` are 2.85 and 3.17, respectively. According to the barplots, the majority of `engienSize` are concentrated between 1 and 3. 10 out of 40 categories in `engienSize` have less than 10 counts. The vehicles with a big `engienSize` are more likely to have less counts. 
+
+# (b) Three candidate models 
+
+* **Linear Model**
+
+The linear model is a relatively simple statistical method to fit a model to a given dataset. The linear pattern between the response variable and the explanatory variables are found by drawing scatter plots. The interaction term is identified using a scatter plot and a correlation coefficient. By putting the square root in the response variable in `lm()`, it normalizes a skewed distribution. Also, it transforms a non-linear relationship between two variables into a linear one, reducing heteroscedasticity of the residuals in linear regression and focusing on visualizing certain parts of the dataset.
+
+    m1 = lm((price)^(1/2) ~ make+model+transmission+fuelType+mpg+engineSize+year*mileage, data=data)
+
+
+* **Smoothing Spline**
+
+The smoothing spline model is a statistical method used to fit a smooth curve to a given dataset. The algorithm works by minimizing the sum of squared residuals subject to a constraint on the roughness of the curve. The roughness penalty is controlled by a smoothing parameter that determines the trade-off between fitting the data and having a smooth curve. 
+
+    ss = gam(price ~ make + model + transmission + fuelType + s(mpg,k=15) 
+        + s(engineSize,k=15) + s(year,k=5) + s(mileage,k=12) 
+        + ti(year, mileage,k=18), data = data)
+
+`s()` is used to specify that we want to fit a smoothing spline to each of the three variables. The `ti()` function is used to specify that we want to include an interaction between `year` and `mileage`. `k` is the number of basis functions used for smooth terms that needs to be checked to ensure that they are not so small that they force oversmoothing. If effective degree of freedom (edf) is significantly less than `k`, `k` needs to decrease.
+
+
+* **Random Forest**
+                   
+The random forest is a machine learning algorithm that uses an ensemble of decision trees to make predictions on a given dataset. The algorithm works by constructing multiple decision trees and combining their predictions to produce a final output. Each decision tree is constructed using a random subset of the features in the dataset, which helps to reduce overfitting and improve the accuracy of the model. 
+
+The importance of each variable is measured by the percentage increase in the mean squared error (MSE) when that variable is removed from the model via `importance(full model)`. According to this function, all the variables show the significantly greater values in X.IncMSE. Therefore, all the variables are added to the random forests. 
+
+Hyperparameters (mtry, ntree, maxnodes, nodesize, sampsize) are tuned by 10-fold cross validation. 
+
+    rf = randomForest(price~make+model+transmission+fuelType+mpg+engineSize+year+mileage,
+                   mtry = 4, ntree=1000, maxnodes= 500, nodesize = 50, sampsize = 50000,
+                   data = data, importance=TRUE) 
+  
+
+# (c) My predictive modeling methodology
+
+In general, linear models have a huge limitation of its sensitivy to outliers, while smoothing splines are relatively flexible due to a smoothing parameter. Also, random forests are less sensitive to outliers as multiple decision trees and combining their predictions to produce a final output. 
+
+The final model is chosen based on the 10-fold cross validation error. K-fold cross-validation is a resampling technique used to evaluate models. It splits the data set into a K number of sections/folds. Each fold is used as a testing set once, while the rest are used as training sets. This helps to check the performance of the model on new data and avoid overfitting, underfitting, or generalizing.
+               
+Three models, m1, ss, rf, got cross validation error, 19371.58, 3068.319, 3024.309, respectively. Hence, the random forest (rf) is chosen as the final predictive model. 
+
+### **Random Forests**
+### Step 1 Significant varialbes 
+The importance of each variable is measured by the percentage increase in the mean squared error (MSE) when that variable is removed from the model via `importance(full model)`. According to this function, all the variables show the significantly greater values in X.IncMSE. Therefore, all the variables are added to the random forests. 
+
+### Step 2 Identify outliers and interaction terms
+According to the EDA in (a), potential outliers are identified. The data is removed when `year` > 2020, `year` < 1999 and `engineSize` > 5.5. Interaction terms are not necessary in random forests. Tree-based models consider variables sequentially, which makes them handy for considering interactions without specifying them.
+
+### Step 3 Tunning parameters
+The ranges for each hyperparameter(mtry, ntree, maxnodes, nodesize, sampsize) are randomly chosen, and those hyperparameters are tuned by 10-fold cross-validation. A random forest is fitted with all the combinations of hyperparameters according to the hyperparams, then the hyperparameters with the least mean squared error are chosen to the the final model.
+
+### Step 4 Choosing a final model
+The final random forest is chosen based on the lowest 10-fold cross validation score. 
+
+    rf = randomForest(price~make+model+transmission+fuelType+mpg+engineSize+year+mileage,
+                   mtry = 4, ntree=1000, maxnodes= 500, nodesize = 50, sampsize = 50000,
+                   data = data, importance=TRUE) 
+              
+### * The limitations of random forests
+Random forests are a powerful algorithm that can provide accurate predictions for both classification and regression problems. However, it has some limitations in terms of interpretability, training time, and memory usage. It is not easily interpretable and does not provide complete visibility into the coefficients as linear regression. Also, a large number of trees can make the algorithm too slow and ineffective for real-time predictions.
+
+# (d) 
+
+# outliers
+
+```{r, error=FALSE, warning=FALSE}
+dtest=read.csv("autoswapper_test.csv")
+```
+
+```{r include= FALSE, error=FALSE, warning=FALSE}
+data=data[data$year>1998,]
+data=data[data$year<2021,]
+data=data[data$engineSize<5.6,]
+```
+
+```{r, error=FALSE, warning=FALSE}
+Model <- function(dtrain, dtest){
+    # Train the model
+    fit = randomForest(price~make+model+transmission+fuelType+mpg+engineSize+year+mileage,
+                   mtry = 4, ntree=1000, maxnodes= 500, nodesize = 50, sampsize = 50000,
+                   data = data, importance=TRUE) 
+    pred = predict(fit, newdata=dtest)
+    res = data.frame(Id=dtest$testID, price=pred)
+    return(res)
+} 
+```
+
+```{r, error=FALSE, warning=FALSE}
+res = Model(data, dtest)
+write.csv(res, file="username_price_suggestions.csv", row.names=FALSE)
+```
+
+
