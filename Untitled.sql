@@ -1,1 +1,0 @@
- select count(*) from milk_production
